@@ -60,41 +60,67 @@ class HeadHunterAPI:
         response = requests.get(url, params=self.params, headers=self._headers)
         return response.json()['items']
 
-    def created_vacancy(self, vacancies: list) -> List[Vacancy]:
+    def created_vacancy(self, vacancies: list):
         """Создание объектов вакансий из списка данных.
 
-        :param vacancies: список с данными вакансий.
+        :param vacancies: список вакансий в формате словаря.
         :return: список объектов класса Vacancy.
         """
 
-        # заполняем список вакансий, создавая для каждой вакансии из списка новый объект класса Vacancy
         self.list_of_vacancies = [
-            ...
+            # Для каждой исходной вакансии в списке создаем объект Vacancy
+            Vacancy(
+                id=vacancy['id'],
+                # Используем метод get для извлечения id работодателя
+                # Если ключей 'employer' или 'id' нет, то вернется None
+                employer_id=vacancy.get('employer', {}).get('id'),
+                name=vacancy['name'],
+                # Используем трехместный оператор if/else для обработки случаев,
+                # когда ключ 'salary' отсутствует в вакансии
+                salary_from=vacancy['salary']['from'] if vacancy['salary'] else None,
+                salary_to=vacancy['salary']['to'] if vacancy['salary'] else None,
+                # Используем трехместный оператор if/else для обработки случаев,
+                # когда ключ 'snippet' или 'responsibility' отсутствует в вакансии
+                description=vacancy['snippet']['responsibility'] if vacancy['snippet']['responsibility'] else 'no data',
+                requirement=vacancy['snippet']['requirement'] if vacancy['snippet']['requirement'] else 'no data',
+                area=vacancy['area']['name'],
+                alternate_url=vacancy['alternate_url']
+            )
+            for vacancy in vacancies
         ]
 
         return self.list_of_vacancies
 
-    def created_employer(self, vacancies: list) -> List[Employer]:
-        """Создание объектов работодателей из списка данных.
+    def created_employer(self, vacancies: list):
+        """Создание объектов работодателей из списка вакансий.
 
-        :param vacancies: список с данными вакансий.
+        :param vacancies: список вакансий в формате словаря.
         :return: список объектов класса Employer.
         """
 
-        # заполняем список работодателей, создавая для каждого работодателя из списка новый объект класса Employer
-        self.list_of_employers = [
-            ...
-        ]
-
+        ids = []
+        for employer in vacancies:
+            if employer['employer']['id'] not in ids:
+                ids.append(employer['employer']['id'])
+                # Если id работодателя еще не был добавлен в список ids,
+                # то создаем новый объект Employer и добавляем его в list_of_employers
+                self.list_of_employers.append(
+                    Employer(
+                        id=int(employer['employer']['id']),
+                        name=employer['employer']['name'],
+                        url=employer['employer']['alternate_url']
+                    )
+                )
         return self.list_of_employers
 
     def get_vacancies_by_employer_name(self, employer_name: str):
-        """Получение списка вакансий по имени работодателя.
+        """ Получение вакансий по имени работодателя.
 
-        :param employer_name: название компании работодателя.
-        :return: список вакансий этой компании.
+        :param employer_name: имя работодателя (строка).
+        :return: список вакансий в формате JSON.
         """
-        self.params['text'] = employer_name
+
+        self.params['text'] = employer_name  # обновляем параметр 'text' в списке params
         vacancies_json = self.get_request(self.vacancies_url)
 
         return vacancies_json
